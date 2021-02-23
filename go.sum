@@ -721,6 +721,8 @@ github.com/prometheus/common v0.17.0 h1:kDIZLI74SS+3tedSvEkykgBkD7txMxaJAPj8DtJU
 github.com/prometheus/common v0.17.0/go.mod h1:U+gB1OBLb1lF3O42bTCL+FK18tX9Oar16Clt/msog/s=
 github.com/prometheus/common v0.17.1-0.20210223122043-1fa30cbbb5cf h1:Tuhzpe1BtlJSb+s+YHBW72rgOTfHC+H1ua27L4xsP1w=
 github.com/prometheus/common v0.17.1-0.20210223122043-1fa30cbbb5cf/go.mod h1:U+gB1OBLb1lF3O42bTCL+FK18tX9Oar16Clt/msog/s=
+github.com/prometheus/common v0.17.1-0.20210223135805-1a6ff9ce3d10 h1:Cc3ggeYjN+3CK8HLcpMeIViOddsKuIlv+QhkelRtQVY=
+github.com/prometheus/common v0.17.1-0.20210223135805-1a6ff9ce3d10/go.mod h1:U+gB1OBLb1lF3O42bTCL+FK18tX9Oar16Clt/msog/s=
 github.com/prometheus/exporter-toolkit v0.5.1 h1:9eqgis5er9xN613ZSADjypCJaDGj9ZlcWBvsIHa8/3c=
 github.com/prometheus/exporter-toolkit v0.5.1/go.mod h1:OCkM4805mmisBhLmVFw858QYi3v0wKdY6/UxrT0pZVg=
 github.com/prometheus/procfs v0.0.0-20181005140218-185b4288413d/go.mod h1:c3At6R/oaqEKCNdg8wHV1ftS6bRYblBhIjjI8uT2IGk=

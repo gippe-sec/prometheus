@@ -140,13 +140,13 @@ func newMetrics(r prometheus.Registerer) *metrics {
 	return m
 }
 
-func (m *metrics) instrumentHandlerWithPrefix(prefix string) func(handlerName string, handler http.Handler) http.Handler {
-	return func(handlerName string, handler http.Handler) http.Handler {
+func (m *metrics) instrumentHandlerWithPrefix(prefix string) func(handlerName string, handler http.Handler) http.HandlerFunc {
+	return func(handlerName string, handler http.Handler) http.HandlerFunc {
 		return m.instrumentHandler(prefix+handlerName, handler)
 	}
 }
 
-func (m *metrics) instrumentHandler(handlerName string, handler http.Handler) http.Handler {
+func (m *metrics) instrumentHandler(handlerName string, handler http.Handler) http.HandlerFunc {
 	return promhttp.InstrumentHandlerCounter(
 		m.requestCounter.MustCurryWith(prometheus.Labels{"handler": handlerName}),
 		promhttp.InstrumentHandlerDuration(
@@ -1132,10 +1132,10 @@ type AlertByStateCount struct {
 	Firing   int32
 }
 
-func setPathWithPrefix(prefix string) func(handlerName string, handler http.Handler) http.Handler {
-	return func(handlerName string, handler http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func setPathWithPrefix(prefix string) func(handlerName string, handler http.Handler) http.HandlerFunc {
+	return func(handlerName string, handler http.Handler) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
 			handler.ServeHTTP(w, r.WithContext(httputil.ContextWithPath(r.Context(), prefix+r.URL.Path)))
-		})
+		}
 	}
 }

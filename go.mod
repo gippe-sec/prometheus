@@ -78,8 +78,7 @@ require (
 )
 
 replace (
-	github.com/prometheus/common => github.com/prometheus/common v0.17.1-0.20210223122043-1fa30cbbb5cf
-	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.9.1-0.20210223122544-ec49658153a1
+	github.com/prometheus/common => github.com/prometheus/common v0.17.1-0.20210223135805-1a6ff9ce3d10
 	k8s.io/klog => github.com/simonpasquier/klog-gokit v0.3.0
 	k8s.io/klog/v2 => github.com/simonpasquier/klog-gokit/v2 v2.0.1
 )
