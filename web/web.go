@@ -140,13 +140,13 @@ func newMetrics(r prometheus.Registerer) *metrics {
 	return m
 }
 
-func (m *metrics) instrumentHandlerWithPrefix(prefix string) func(handlerName string, handler http.HandlerFunc) http.HandlerFunc {
-	return func(handlerName string, handler http.HandlerFunc) http.HandlerFunc {
+func (m *metrics) instrumentHandlerWithPrefix(prefix string) func(handlerName string, handler http.Handler) http.Handler {
+	return func(handlerName string, handler http.Handler) http.Handler {
 		return m.instrumentHandler(prefix+handlerName, handler)
 	}
 }
 
-func (m *metrics) instrumentHandler(handlerName string, handler http.HandlerFunc) http.HandlerFunc {
+func (m *metrics) instrumentHandler(handlerName string, handler http.Handler) http.Handler {
 	return promhttp.InstrumentHandlerCounter(
 		m.requestCounter.MustCurryWith(prometheus.Labels{"handler": handlerName}),
 		promhttp.InstrumentHandlerDuration(
@@ -332,58 +332,58 @@ func New(logger log.Logger, o *Options) *Handler {
 
 	if o.RoutePrefix != "/" {
 		// If the prefix is missing for the root path, prepend it.
-		router.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		router.Get("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, o.RoutePrefix, http.StatusFound)
-		})
+		}))
 		router = router.WithPrefix(o.RoutePrefix)
 	}
 
 	readyf := h.testReady
 
-	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, path.Join(o.ExternalURL.Path, "/graph"), http.StatusFound)
-	})
-	router.Get("/classic/", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	router.Get("/classic/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, path.Join(o.ExternalURL.Path, "/classic/graph"), http.StatusFound)
-	})
+	}))
 
 	// Redirect the original React UI's path (under "/new") to its new path at the root.
-	router.Get("/new/*path", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/new/*path", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		p := route.Param(r.Context(), "path")
 		http.Redirect(w, r, path.Join(o.ExternalURL.Path, strings.TrimPrefix(p, "/new"))+"?"+r.URL.RawQuery, http.StatusFound)
-	})
+	}))
 
-	router.Get("/classic/alerts", readyf(h.alerts))
-	router.Get("/classic/graph", readyf(h.graph))
-	router.Get("/classic/status", readyf(h.status))
-	router.Get("/classic/flags", readyf(h.flags))
-	router.Get("/classic/config", readyf(h.serveConfig))
-	router.Get("/classic/rules", readyf(h.rules))
-	router.Get("/classic/targets", readyf(h.targets))
-	router.Get("/classic/service-discovery", readyf(h.serviceDiscovery))
-	router.Get("/classic/static/*filepath", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/classic/alerts", readyf(http.HandlerFunc(h.alerts)))
+	router.Get("/classic/graph", readyf(http.HandlerFunc(h.graph)))
+	router.Get("/classic/status", readyf(http.HandlerFunc(h.status)))
+	router.Get("/classic/flags", readyf(http.HandlerFunc(h.flags)))
+	router.Get("/classic/config", readyf(http.HandlerFunc(h.serveConfig)))
+	router.Get("/classic/rules", readyf(http.HandlerFunc(h.rules)))
+	router.Get("/classic/targets", readyf(http.HandlerFunc(h.targets)))
+	router.Get("/classic/service-discovery", readyf(http.HandlerFunc(h.serviceDiscovery)))
+	router.Get("/classic/static/*filepath", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.URL.Path = path.Join("/static", route.Param(r.Context(), "filepath"))
 		fs := server.StaticFileServer(ui.Assets)
 		fs.ServeHTTP(w, r)
-	})
+	}))
 	// Make sure that "<path-prefix>/classic" is redirected to "<path-prefix>/classic/" and
 	// not just the naked "/classic/", which would be the default behavior of the router
 	// with the "RedirectTrailingSlash" option (https://godoc.org/github.com/julienschmidt/httprouter#Router.RedirectTrailingSlash),
 	// and which breaks users with a --web.route-prefix that deviates from the path derived
 	// from the external URL.
 	// See https://github.com/prometheus/prometheus/issues/6163#issuecomment-553855129.
-	router.Get("/classic", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/classic", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, path.Join(o.ExternalURL.Path, "classic")+"/", http.StatusFound)
-	})
+	}))
 
-	router.Get("/version", h.version)
-	router.Get("/metrics", promhttp.Handler().ServeHTTP)
+	router.Get("/version", http.HandlerFunc(h.version))
+	router.Get("/metrics", promhttp.Handler())
 
 	router.Get("/federate", readyf(httputil.CompressionHandler{
 		Handler: http.HandlerFunc(h.federation),
-	}.ServeHTTP))
+	}))
 
-	router.Get("/consoles/*filepath", readyf(h.consoles))
+	router.Get("/consoles/*filepath", readyf(http.HandlerFunc(h.consoles)))
 
 	serveReactApp := func(w http.ResponseWriter, r *http.Request) {
 		f, err := ui.Assets.Open("/static/react/index.html")
@@ -405,66 +405,66 @@ func New(logger log.Logger, o *Options) *Handler {
 
 	// Serve the React app.
 	for _, p := range reactRouterPaths {
-		router.Get(p, serveReactApp)
+		router.Get(p, http.HandlerFunc(serveReactApp))
 	}
 
 	// The favicon and manifest are bundled as part of the React app, but we want to serve
 	// them on the root.
 	for _, p := range []string{"/favicon.ico", "/manifest.json"} {
 		assetPath := "/static/react" + p
-		router.Get(p, func(w http.ResponseWriter, r *http.Request) {
+		router.Get(p, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			r.URL.Path = assetPath
 			fs := server.StaticFileServer(ui.Assets)
 			fs.ServeHTTP(w, r)
-		})
+		}))
 	}
 
 	// Static files required by the React app.
-	router.Get("/static/*filepath", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/static/*filepath", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.URL.Path = path.Join("/static/react/static", route.Param(r.Context(), "filepath"))
 		fs := server.StaticFileServer(ui.Assets)
 		fs.ServeHTTP(w, r)
-	})
+	}))
 
 	if o.UserAssetsPath != "" {
 		router.Get("/user/*filepath", route.FileServe(o.UserAssetsPath))
 	}
 
 	if o.EnableLifecycle {
-		router.Post("/-/quit", h.quit)
-		router.Put("/-/quit", h.quit)
-		router.Post("/-/reload", h.reload)
-		router.Put("/-/reload", h.reload)
+		router.Post("/-/quit", http.HandlerFunc(h.quit))
+		router.Put("/-/quit", http.HandlerFunc(h.quit))
+		router.Post("/-/reload", http.HandlerFunc(h.reload))
+		router.Put("/-/reload", http.HandlerFunc(h.reload))
 	} else {
-		forbiddenAPINotEnabled := func(w http.ResponseWriter, _ *http.Request) {
+		forbiddenAPINotEnabled := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte("Lifecycle API is not enabled."))
-		}
+		})
 		router.Post("/-/quit", forbiddenAPINotEnabled)
 		router.Put("/-/quit", forbiddenAPINotEnabled)
 		router.Post("/-/reload", forbiddenAPINotEnabled)
 		router.Put("/-/reload", forbiddenAPINotEnabled)
 	}
-	router.Get("/-/quit", func(w http.ResponseWriter, _ *http.Request) {
+	router.Get("/-/quit", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		w.Write([]byte("Only POST or PUT requests allowed"))
-	})
-	router.Get("/-/reload", func(w http.ResponseWriter, _ *http.Request) {
+	}))
+	router.Get("/-/reload", http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		w.Write([]byte("Only POST or PUT requests allowed"))
-	})
+	}))
 
-	router.Get("/debug/*subpath", serveDebug)
-	router.Post("/debug/*subpath", serveDebug)
+	router.Get("/debug/*subpath", http.HandlerFunc(serveDebug))
+	router.Post("/debug/*subpath", http.HandlerFunc(serveDebug))
 
-	router.Get("/-/healthy", func(w http.ResponseWriter, r *http.Request) {
+	router.Get("/-/healthy", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "Prometheus is Healthy.\n")
-	})
-	router.Get("/-/ready", readyf(func(w http.ResponseWriter, r *http.Request) {
+	}))
+	router.Get("/-/ready", readyf(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, "Prometheus is Ready.\n")
-	}))
+	})))
 
 	return h
 }
@@ -510,15 +510,15 @@ func (h *Handler) isReady() bool {
 }
 
 // Checks if server is ready, calls f if it is, returns 503 if it is not.
-func (h *Handler) testReady(f http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) testReady(f http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if h.isReady() {
-			f(w, r)
+			f.ServeHTTP(w, r)
 		} else {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			fmt.Fprintf(w, "Service Unavailable")
 		}
-	}
+	})
 }
 
 // Quit returns the receive-only quit channel.
@@ -1132,10 +1132,10 @@ type AlertByStateCount struct {
 	Firing   int32
 }
 
-func setPathWithPrefix(prefix string) func(handlerName string, handler http.HandlerFunc) http.HandlerFunc {
-	return func(handlerName string, handler http.HandlerFunc) http.HandlerFunc {
-		return func(w http.ResponseWriter, r *http.Request) {
-			handler(w, r.WithContext(httputil.ContextWithPath(r.Context(), prefix+r.URL.Path)))
-		}
+func setPathWithPrefix(prefix string) func(handlerName string, handler http.Handler) http.Handler {
+	return func(handlerName string, handler http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			handler.ServeHTTP(w, r.WithContext(httputil.ContextWithPath(r.Context(), prefix+r.URL.Path)))
+		})
 	}
 }

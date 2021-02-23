@@ -10,6 +10,7 @@ require (
 	github.com/Azure/go-autorest/autorest/validation v0.3.1 // indirect
 	github.com/HdrHistogram/hdrhistogram-go v1.0.1 // indirect
 	github.com/Microsoft/go-winio v0.4.16 // indirect
+	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20210208195552-ff826a37aa15
 	github.com/aws/aws-sdk-go v1.37.8
 	github.com/cespare/xxhash/v2 v2.1.1
@@ -77,6 +78,8 @@ require (
 )
 
 replace (
+	github.com/prometheus/common => github.com/prometheus/common v0.17.1-0.20210223122043-1fa30cbbb5cf
+	github.com/prometheus/client_golang => github.com/prometheus/client_golang v1.9.1-0.20210223122544-ec49658153a1
 	k8s.io/klog => github.com/simonpasquier/klog-gokit v0.3.0
 	k8s.io/klog/v2 => github.com/simonpasquier/klog-gokit/v2 v2.0.1
 )

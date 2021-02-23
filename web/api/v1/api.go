@@ -167,7 +167,7 @@ type API struct {
 	now                   func() time.Time
 	config                func() config.Config
 	flagsMap              map[string]string
-	ready                 func(http.HandlerFunc) http.HandlerFunc
+	ready                 func(http.Handler) http.Handler
 	globalURLOptions      GlobalURLOptions
 
 	db          TSDBAdminStats
@@ -197,7 +197,7 @@ func NewAPI(
 	configFunc func() config.Config,
 	flagsMap map[string]string,
 	globalURLOptions GlobalURLOptions,
-	readyFunc func(http.HandlerFunc) http.HandlerFunc,
+	readyFunc func(http.Handler) http.Handler,
 	db TSDBAdminStats,
 	dbDir string,
 	enableAdmin bool,
@@ -252,7 +252,7 @@ func setUnavailStatusOnTSDBNotReady(r apiFuncResult) apiFuncResult {
 
 // Register the API's endpoints in the given router.
 func (api *API) Register(r *route.Router) {
-	wrap := func(f apiFunc) http.HandlerFunc {
+	wrap := func(f apiFunc) http.Handler {
 		hf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			httputil.SetCORS(w, api.CORSOrigin, r)
 			result := setUnavailStatusOnTSDBNotReady(f(r))
@@ -272,7 +272,7 @@ func (api *API) Register(r *route.Router) {
 		})
 		return api.ready(httputil.CompressionHandler{
 			Handler: hf,
-		}.ServeHTTP)
+		})
 	}
 
 	r.Options("/*path", wrap(api.options))
@@ -301,7 +301,7 @@ func (api *API) Register(r *route.Router) {
 	r.Get("/status/buildinfo", wrap(api.serveBuildInfo))
 	r.Get("/status/flags", wrap(api.serveFlags))
 	r.Get("/status/tsdb", wrap(api.serveTSDBStatus))
-	r.Post("/read", api.ready(http.HandlerFunc(api.remoteRead)))
+	r.Post("/read", api.ready(api.remoteReadHandler))
 	r.Post("/write", api.ready(http.HandlerFunc(api.remoteWrite)))
 
 	r.Get("/alerts", wrap(api.alerts))
@@ -1299,13 +1299,6 @@ func (api *API) serveTSDBStatus(*http.Request) apiFuncResult {
 		MemoryInBytesByLabelName:    convertStats(s.IndexPostingStats.LabelValueStats),
 		SeriesCountByLabelValuePair: convertStats(s.IndexPostingStats.LabelValuePairsStats),
 	}, nil, nil, nil}
-}
-
-func (api *API) remoteRead(w http.ResponseWriter, r *http.Request) {
-	// This is only really for tests - this will never be nil IRL.
-	if api.remoteReadHandler != nil {
-		api.remoteReadHandler.ServeHTTP(w, r)
-	}
 }
 
 func (api *API) remoteWrite(w http.ResponseWriter, r *http.Request) {
